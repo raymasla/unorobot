@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>UNO 機器人控制台 — 進階版</title>
+    <style>
+        /* --- 專業深藍暗色系主題與動畫 (無霓虹/發光特效) --- */
+        :root {
+            --bg-color: #0f172a;
+            --container-bg: rgba(30, 41, 59, 0.9);
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --primary-grad: linear-gradient(135deg, #1e3a8a 0%, #312e81 100%);
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-orange: #f59e0b;
+            --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        body {
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(-45deg, #020617, #0f172a, #1e1b4b, #020617);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .container {
+            background: var(--container-bg);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(12px);
+            border: var(--glass-border);
+            width: 100%;
+            max-width: 520px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+
+        h1 { 
+            margin-top: 0; 
+            color: #f8fafc; 
+            font-size: 1.6em; 
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .input-group { 
+            margin: 15px 0; 
+            text-align: left; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+        }
+        
+        .input-group-vertical {
+            margin: 15px 0;
+            text-align: left;
+        }
+
+        input, .styled-select {
+            padding: 10px 15px; 
+            border: 1px solid #475569;
+            border-radius: 8px; 
+            background: #0f172a; 
+            color: white; 
+            outline: none; 
+            transition: 0.3s;
+            box-sizing: border-box;
+        }
+        input { width: 62%; text-align: center; }
+        .styled-select { width: 100%; height: 42px; cursor: pointer; font-size: 14px; }
+        input:focus, .styled-select:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+
+        .menu-btn {
+            width: 100%; padding: 14px; margin: 15px 0 5px 0; font-size: 16px; cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
+            background: var(--primary-grad);
+            color: white; font-weight: bold;
+            transition: 0.3s;
+        }
+        .menu-btn:hover { transform: translateY(-2px); background: linear-gradient(135deg, #2563eb, #1e40af); }
+        .menu-btn:active { transform: translateY(0); }
+        .menu-btn:disabled { background: #334155; cursor: not-allowed; transform: none; color: #94a3b8; border: none; }
+
+        /* --- 實時手牌監控面板樣式 --- */
+        .monitor-panel {
+            margin-top: 20px;
+            border: var(--glass-border);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.5);
+            padding: 15px;
+            text-align: left;
+        }
+        .monitor-title {
+            font-size: 0.95em;
+            font-weight: bold;
+            color: #cbd5e1;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding-bottom: 8px;
+        }
+        .badge {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 20px;
+            color: white;
+            font-weight: bold;
+        }
+        .bot-row {
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-left: 4px solid #475569;
+            transition: all 0.2s ease;
+        }
+        .bot-row.active-turn {
+            background: rgba(16, 185, 129, 0.08);
+            box-shadow: inset 0 0 10px rgba(16, 185, 129, 0.05);
+        }
+        .bot-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85em;
+            margin-bottom: 6px;
+        }
+        .cards-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .uno-card-mini {
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+            min-width: 24px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.1);
+            text-shadow: 0 1px 1px rgba(0,0,0,0.5);
+            user-select: none;
+        }
+        .uno-card-mini.red { background: var(--accent-red); }
+        .uno-card-mini.blue { background: #3b82f6; }
+        .uno-card-mini.green { background: var(--accent-green); }
+        .uno-card-mini.yellow { background: #eab308; color: #0f172a; text-shadow: none; }
+        .uno-card-mini.black { background: #334155; }
+
+        /* --- 日誌區樣式 --- */
+        #log-area {
+            margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; text-align: left;
+        }
+        #bot-logs {
+            height: 220px; overflow-y: auto; background: rgba(0,0,0,0.4);
+            border-radius: 8px; padding: 10px; font-size: 0.85em; margin-bottom: 10px;
+            border: 1px solid rgba(255,255,255,0.05); color: var(--text-muted);
+            line-height: 1.5;
+        }
+        .log-info { color: #93c5fd; }
+        .log-action { color: #34d399; }
+        .log-warn { color: #fbbf24; }
+
+        /* 滾動條美化 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🤖 UNO 機器人高級控制台</h1>
+    
+    <div class="input-group-vertical">
+        <label style="color:#cbd5e1; font-weight:bold; display:block; margin-bottom:6px;">選擇現有的 UNO 房間:</label>
+        <select id="roomIdSelect" class="styled-select">
+            <option value="">-- 正在讀取線上房間清單... --</option>
+        </select>
+    </div>
+
+    <div class="input-group">
+        <label style="color:#cbd5e1; font-weight:bold;">房間 ID Key:</label>
+        <input type="text" id="roomIdInput" placeholder="請選擇上方房間或輸入房間 key">
+    </div>
+    
+    <div class="input-group">
+        <label style="color:#cbd5e1; font-weight:bold;">加入數量:</label>
+        <input type="number" id="botCountInput" min="1" max="5" value="1">
+    </div>
+
+    <button id="addBotsBtn" class="menu-btn" onclick="addBotsToRoom()">🚀 派遣機器人加入房間</button>
+
+    <div class="monitor-panel" id="monitorPanel" style="display: none;">
+        <div class="monitor-title">
+            <span>👁️ 實時手牌與局勢監控</span>
+            <span id="currentRoomStateBadge" class="badge">連線中</span>
+        </div>
+        <div id="botHandsList">
+            </div>
+    </div>
+
+    <div id="log-area">
+        <div style="margin-bottom: 8px; font-size: 0.9em; color: var(--text-muted); font-weight: bold;">📝 機器人日誌</div>
+        <div id="bot-logs"></div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getDatabase, ref, get, update, onValue, push, onDisconnect } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyC7PZLTTNf17cfp9gCHudWiWX8SYPSCdDI",
+        authDomain: "onlineeasyraygame.firebaseapp.com",
+        databaseURL: "https://onlineeasyraygame-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "onlineeasyraygame"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let activeBots = {}; 
+    let currentRoomId = null;
+    let roomListener = null;
+    let currentRoomDataCache = null; // 快取最新房間狀態
+
+    // --- 🎮 線上偵測並動態列出 UNO 房間列表 ---
+    onValue(ref(db, "ongame_room"), (snapshot) => {
+        const roomsData = snapshot.val();
+        const selectEl = document.getElementById("roomIdSelect");
+        if (!selectEl) return;
+        
+        const prevSelected = selectEl.value;
+        selectEl.innerHTML = '<option value="">-- 請選取線上現有的 UNO 房間 --</option>';
+        
+        let hasUnoRoom = false;
+        if (roomsData) {
+            Object.keys(roomsData).forEach(key => {
+                const room = roomsData[key];
+                // 僅過濾呈現類型為 uno 的房間
+                if (room && room.type === 'uno') {
+                    hasUnoRoom = true;
+                    const pCount = room.users ? Object.keys(room.users).length : 0;
+                    const state = room.gameState || 'waiting';
+                    let stateText = '⏳ 等待中';
+                    if (state === 'playing') stateText = '🎮 進行中';
+                    if (state === 'ended') stateText = '🏁 已結束';
+
+                    const opt = document.createElement("option");
+                    opt.value = key;
+                    opt.textContent = `🏠 ${room.name || '未命名房間'} (${stateText} · ${pCount}人)`;
+                    selectEl.appendChild(opt);
+                }
+            });
+        }
+        
+        if (!hasUnoRoom) {
+            selectEl.innerHTML = '<option value="">目前資料庫內沒有任何 UNO 房間</option>';
+        } else if (prevSelected && selectEl.querySelector(`option[value="${prevSelected}"]`)) {
+            selectEl.value = prevSelected;
+        } else if (currentRoomId) {
+            selectEl.value = currentRoomId;
+        }
+    });
+
+    // 選擇列表項目時，自動填寫同步到 roomIdInput 中
+    document.getElementById("roomIdSelect").addEventListener("change", (e) => {
+        document.getElementById("roomIdInput").value = e.target.value;
+    });
+
+    // --- 👁️ 實時手牌監控面板渲染 ---
+    function updateMonitorUI(roomData) {
+        const panel = document.getElementById("monitorPanel");
+        const listContainer = document.getElementById("botHandsList");
+        if (!panel || !listContainer) return;
+
+        if (!roomData) {
+            panel.style.display = "none";
+            return;
+        }
+
+        panel.style.display = "block";
+        
+        // 更新當前房間狀態標籤
+        const stateBadge = document.getElementById("currentRoomStateBadge");
+        if (stateBadge) {
+            const state = roomData.gameState || 'waiting';
+            if (state === 'playing') {
+                stateBadge.textContent = "🎮 遊戲進行中";
+                stateBadge.style.background = "var(--accent-green)";
+            } else if (state === 'ended') {
+                stateBadge.textContent = "🏁 遊戲已結束";
+                stateBadge.style.background = "var(--accent-orange)";
+            } else {
+                stateBadge.textContent = "⏳ 等待玩家中";
+                stateBadge.style.background = "#475569";
+            }
+        }
+
+        listContainer.innerHTML = "";
+        
+        if (!roomData.users) {
+            listContainer.innerHTML = `<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 10px;">房間內尚無玩家數據</div>`;
+            return;
+        }
+
+        const playerOrder = roomData.playerOrder || Object.keys(roomData.users);
+        const turnIndex = roomData.turnIndex !== undefined ? roomData.turnIndex : -1;
+        const currentTurnUid = playerOrder[turnIndex] || null;
+
+        playerOrder.forEach((uid) => {
+            const user = roomData.users[uid];
+            if (!user) return;
+            
+            const isBot = user.isBot || !!activeBots[uid];
+            const handCards = roomData.hands ? (roomData.hands[uid] || []) : [];
+            
+            const row = document.createElement("div");
+            row.className = `bot-row ${uid === currentTurnUid ? 'active-turn' : ''}`;
+            // 機器人使用橘色條點綴，一般玩家使用藍色條點綴
+            row.style.borderLeftColor = isBot ? "var(--accent-orange)" : "#3b82f6";
+
+            const meta = document.createElement("div");
+            meta.className = "bot-meta";
+            
+            const nameSpan = document.createElement("span");
+            nameSpan.style.fontWeight = "bold";
+            nameSpan.style.color = uid === currentTurnUid ? "#ffffff" : "var(--text-main)";
+            nameSpan.innerHTML = `${isBot ? '🤖' : '👤'} ${user.name || '未知玩家'} ${uid === currentTurnUid ? '<span style="color:var(--accent-green); font-size:11px; margin-left:6px; font-weight:bold;">[當前回合]</span>' : ''}`;
+            
+            const countSpan = document.createElement("span");
+            countSpan.style.color = "var(--text-muted)";
+            countSpan.style.fontSize = "12px";
+            countSpan.textContent = `手牌: ${handCards.length} 張`;
+
+            meta.appendChild(nameSpan);
+            meta.appendChild(countSpan);
+            row.appendChild(meta);
+
+            const cardsContainer = document.createElement("div");
+            cardsContainer.className = "cards-container";
+
+            if (handCards.length === 0) {
+                const noCards = document.createElement("div");
+                noCards.style.cssText = "color: #475569; font-size: 12px; font-style: italic; padding: 2px 0;";
+                noCards.textContent = "暫無手牌 (已出完牌或尚未開始)";
+                cardsContainer.appendChild(noCards);
+            } else {
+                handCards.forEach(card => {
+                    const cardEl = document.createElement("div");
+                    cardEl.className = `uno-card-mini ${card.color || 'black'}`;
+                    
+                    let text = '';
+                    if (card.type === 'n') text = card.value !== undefined ? card.value : '';
+                    else if (card.type === 'skip') text = '🚫';
+                    else if (card.type === 'reverse') text = '🔄';
+                    else if (card.type === 'draw2') text = '+2';
+                    else if (card.type === 'wild4') text = '+4';
+                    else text = card.type || '';
+                    
+                    cardEl.textContent = text;
+                    cardEl.title = `${card.color === 'black' ? '黑色' : card.color} · ${card.type}`;
+                    cardsContainer.appendChild(cardEl);
+                });
+            }
+
+            row.appendChild(cardsContainer);
+            listContainer.appendChild(row);
+        });
+    }
+
+    // --- 日誌工具 ---
+    function logMsg(msg, type = 'info') {
+        const logs = document.getElementById('bot-logs');
+        const div = document.createElement('div');
+        if (type === 'action') div.className = 'log-action';
+        else if (type === 'warn') div.className = 'log-warn';
+        else div.className = 'log-info';
+        
+        const time = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+        div.innerText = `[${time}] ${msg}`;
+        logs.appendChild(div);
+        logs.scrollTop = logs.scrollHeight;
+    }
+
+    // --- 輔助函式：取得下一個活著的玩家索引 ---
+    function getUnoNextActiveIndex(data, startIdx, dir, steps, tempFinishedList = null) {
+        let finished = tempFinishedList || data.finishedPlayers || [];
+        let total = data.playerOrder.length;
+        if (total - finished.length <= 1 && finished.length > 0) return startIdx;
+        let curr = startIdx;
+        let taken = 0;
+        while(taken < steps) {
+            curr = (curr + dir) % total;
+            if (curr < 0) curr += total;
+            if (!finished.includes(data.playerOrder[curr])) taken++;
+        }
+        return curr;
+    }
+
+    // --- 機器人選色邏輯 ---
+    function getBestWildColor(hand) {
+        const colors = ['red', 'blue', 'green', 'yellow'];
+        let counts = { red:0, blue:0, green:0, yellow:0 };
+        let actionCounts = { red:0, blue:0, green:0, yellow:0 };
+
+        (hand || []).forEach(c => {
+            if (colors.includes(c.color)) {
+                counts[c.color]++;
+                if (['skip', 'reverse', 'draw2'].includes(c.type)) actionCounts[c.color]++;
+            }
+        });
+
+        let bestColor = 'red';
+        let maxCount = -1;
+        let maxAction = -1;
+
+        colors.forEach(col => {
+            if (counts[col] > maxCount) {
+                maxCount = counts[col];
+                maxAction = actionCounts[col];
+                bestColor = col;
+            } else if (counts[col] === maxCount) {
+                if (actionCounts[col] > maxAction) {
+                    maxAction = actionCounts[col];
+                    bestColor = col;
+                } else if (actionCounts[col] === maxAction) {
+                    if (Math.random() > 0.5) bestColor = col; 
+                }
+            }
+        });
+        return bestColor;
+    }
+
+    // --- 取得未重複的機器人名稱 ---
+    function getNextBotName(usersData) {
+        let maxNum = 0;
+        if (usersData) {
+            Object.values(usersData).forEach(u => {
+                if (u.name && u.name.startsWith("機器人")) {
+                    let num = parseInt(u.name.replace("機器人", ""));
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
+                }
+            });
+        }
+        let nextNum = maxNum + 1;
+        return `機器人${nextNum.toString().padStart(2, '0')}`;
+    }
+
+    // --- 🚀 派遣機器人 ---
+    window.addBotsToRoom = async () => {
+        const roomId = document.getElementById('roomIdInput').value.trim();
+        const botCount = parseInt(document.getElementById('botCountInput').value);
+        if (!roomId) return alert("請選取現有房間或手動輸入房間 Key！");
+
+        const btn = document.getElementById('addBotsBtn');
+        btn.disabled = true;
+
+        try {
+            const roomSnap = await get(ref(db, `ongame_room/${roomId}`));
+            let roomData = roomSnap.val();
+            
+            if (!roomData || roomData.type !== 'uno') {
+                logMsg(`❌ 找不到 UNO 房間 ${roomId}`, 'warn');
+                btn.disabled = false;
+                return;
+            }
+
+            logMsg(`✅ 成功連線到房間: ${roomData.name || '未命名房間'}`);
+            currentRoomId = roomId;
+
+            for (let i = 0; i < botCount; i++) {
+                const tempSnap = await get(ref(db, `ongame_room/${roomId}/users`));
+                const botName = getNextBotName(tempSnap.val());
+                
+                const userRef = push(ref(db, `ongame_room/${roomId}/users`));
+                await update(userRef, { name: botName, online: true, isBot: true });
+                onDisconnect(userRef).update({ online: false });
+                
+                activeBots[userRef.key] = { uid: userRef.key, name: botName, isProcessing: false };
+                logMsg(`🤖 ${botName} 已加入座位`, 'action');
+            }
+
+            if (!roomListener) {
+                startRoomListener();
+            }
+
+        } catch (err) {
+            logMsg(`❌ 錯誤: ${err.message}`, 'warn');
+        }
+        btn.disabled = false;
+    };
+
+    // --- 🎧 監聽房間狀態與主動輪詢機制 ---
+    function startRoomListener() {
+        // 被動監聽：資料庫一有更新立刻抓取最新狀態
+        roomListener = onValue(ref(db, `ongame_room/${currentRoomId}`), (snapshot) => {
+            currentRoomDataCache = snapshot.val();
+            checkBotTurns();
+            updateMonitorUI(currentRoomDataCache); // 實時更新即時觀戰面板與手牌
+        });
+
+        // 主動輪詢：每 800 毫秒檢查一次，防止連莊回合遺漏觸發
+        setInterval(() => {
+            checkBotTurns();
+        }, 800);
+    }
+
+    // 集中處理回合檢查
+    function checkBotTurns() {
+        if (!currentRoomDataCache || currentRoomDataCache.gameState !== 'playing') return;
+        
+        const turnUid = currentRoomDataCache.playerOrder[currentRoomDataCache.turnIndex];
+        
+        // 只要是機器人的回合，且它目前沒有在執行動作，就立刻派它做事
+        if (activeBots[turnUid] && !activeBots[turnUid].isProcessing) {
+            activeBots[turnUid].isProcessing = true; // 上鎖，防止重複觸發
+            executeBotTurn(turnUid, currentRoomDataCache);
+        }
+    }
+
+    // --- 🚨 防卡死保底機制：強制略過 ---
+    async function forceSkipTurn(botUid, data) {
+        try {
+            const snap = await get(ref(db, `ongame_room/${currentRoomId}`));
+            const currentData = snap.val() || data;
+            
+            if (!currentData || currentData.gameState !== 'playing' || currentData.playerOrder[currentData.turnIndex] !== botUid) {
+                return;
+            }
+
+            if (currentData.accumulatedDraw > 0) {
+                await botPassTurn(botUid, currentData, true);
+            } else {
+                await botDrawOneCard(botUid, currentData, true);
+            }
+        } catch (e) {
+            console.error("防卡死二次保底執行失敗:", e);
+            try {
+                let nextIdx = getUnoNextActiveIndex(data, data.turnIndex, data.direction, 1);
+                await update(ref(db, `ongame_room/${currentRoomId}`), {
+                    turnIndex: nextIdx,
+                    lastAction: `🛑 ${activeBots[botUid]?.name || '機器人'} 發生嚴重當機，系統強制跳轉`
+                });
+            } catch (err) {
+                console.error("終極防線寫入失敗:", err);
+            }
+        }
+    }
+
+    // --- 🤖 機器人回合邏輯 (防卡死持續動作版) ---
+    async function executeBotTurn(botUid, roomData) {
+        const botName = activeBots[botUid].name;
+        let watchdogTimer = null;
+        let isHandled = false;
+
+        try {
+            // 🕒 看門狗防線：3 秒倒數計時
+            watchdogTimer = setTimeout(async () => {
+                if (isHandled) return;
+                isHandled = true; 
+                logMsg(`⚠️ 警告: ${botName} 執行逾時 (超過 3 秒)，觸發看門狗強制跳過！`, 'warn');
+                await forceSkipTurn(botUid, roomData);
+                if (activeBots[botUid]) activeBots[botUid].isProcessing = false;
+            }, 3000);
+
+            // 假裝思考時間，讓節奏自然一點
+            logMsg(`🤔 ${botName} 思考中...`);
+            await new Promise(r => setTimeout(r, 1000));
+
+            if (isHandled) return; 
+
+            // 確保操作前拿的是最新狀態
+            const snap = await get(ref(db, `ongame_room/${currentRoomId}`));
+            const currentData = snap.val();
+            
+            if (!currentData || currentData.gameState !== 'playing' || currentData.playerOrder[currentData.turnIndex] !== botUid) {
+                isHandled = true;
+                return;
+            }
+
+            const hand = currentData.hands[botUid] || [];
+            if (!currentData.discardPile || currentData.discardPile.length === 0) {
+                isHandled = true;
+                return;
+            }
+            const topCard = currentData.discardPile[currentData.discardPile.length - 1];
+            
+            let validCards = [];
+            let isPenaltyMode = false;
+
+            if (currentData.accumulatedDraw > 0) {
+                isPenaltyMode = true;
+                validCards = hand.filter(c => (topCard.type === 'draw2' && c.type === 'draw2') || (topCard.type === 'wild4' && c.type === 'wild4'));
+            } else {
+                validCards = hand.filter(c => c.color === currentData.currentColor || c.value === topCard.value || c.color === 'black');
+            }
+
+            if (validCards.length === 0) {
+                if (isPenaltyMode) {
+                    logMsg(`😢 ${botName} 無法疊加，接受罰抽 ${currentData.accumulatedDraw} 張`, 'warn');
+                    await botPassTurn(botUid, currentData);
+                } else {
+                    logMsg(`🃏 ${botName} 沒有牌可以出，進行抽牌`);
+                    await botDrawOneCard(botUid, currentData);
+                }
+            } else {
+                let bestCombo = [];
+                let bestBaseCard = null;
+
+                validCards.forEach(baseCard => {
+                    let matches = [];
+                    if (baseCard.color === 'black') {
+                        matches = hand.filter(c => c.color === 'black' && c.type === baseCard.type && c !== baseCard);
+                    } else if (baseCard.type === 'n') {
+                        matches = hand.filter(c => c.type === 'n' && c.value === baseCard.value && c !== baseCard);
+                    } else {
+                        matches = hand.filter(c => c.type === baseCard.type && c !== baseCard);
+                    }
+
+                    let entireGroup = [baseCard, ...matches];
+                    let remainingHand = hand.filter(c => !entireGroup.includes(c));
+                    
+                    let remCounts = { red: 0, blue: 0, green: 0, yellow: 0 };
+                    remainingHand.forEach(c => {
+                        if (remCounts[c.color] !== undefined) remCounts[c.color]++;
+                    });
+
+                    matches.sort((a, b) => (remCounts[a.color] || 0) - (remCounts[b.color] || 0));
+                    
+                    let currentCombo = [baseCard, ...matches];
+
+                    const isComboAllowed = currentData.settings ? (currentData.settings.combo || currentData.settings.chain || currentData.settings.continuous) : true;
+                    if (!isComboAllowed) {
+                        currentCombo = [baseCard]; 
+                    }
+
+                    if (currentCombo.length > bestCombo.length) {
+                        bestCombo = currentCombo;
+                        bestBaseCard = baseCard;
+                    } else if (currentCombo.length === bestCombo.length && bestCombo.length > 0) {
+                        const getTypeScore = (c) => {
+                            if (['skip', 'reverse', 'draw2'].includes(c.type)) return 3;
+                            if (c.type === 'n') return 2;
+                            return 1;
+                        };
+                        if (getTypeScore(baseCard) > getTypeScore(bestBaseCard)) {
+                            bestCombo = currentCombo;
+                            bestBaseCard = baseCard;
+                        }
+                    }
+                });
+
+                let chosenColor = null;
+                const finalCard = bestCombo[bestCombo.length - 1];
+                if (finalCard.color === 'black') {
+                    let remainingHand = hand.filter(c => !bestCombo.includes(c));
+                    chosenColor = getBestWildColor(remainingHand);
+                }
+
+                await executeUnoPlay(botUid, currentData, bestCombo, chosenColor);
+            }
+            
+            isHandled = true;
+
+        } catch (error) {
+            if (isHandled) return;
+            isHandled = true;
+            console.error(`機器人 ${botName} 發生錯誤:`, error);
+            logMsg(`❌ ${botName} 執行時發生例外異常，立即強制跳過！`, 'warn');
+            await forceSkipTurn(botUid, roomData);
+        } finally {
+            if (watchdogTimer) clearTimeout(watchdogTimer);
+            if (activeBots[botUid]) {
+                activeBots[botUid].isProcessing = false; 
+            }
+        }
+    }
+
+    // --- 執行出牌 ---
+    async function executeUnoPlay(botUid, data, cardsPlayed, chosenColor) {
+        if (!Array.isArray(cardsPlayed)) cardsPlayed = [cardsPlayed];
+        const botName = activeBots[botUid].name;
+        let newHand = [...(data.hands[botUid] || [])];
+        
+        cardsPlayed.forEach(cardPlayed => {
+            const cardIdx = newHand.findIndex(c => c.color === cardPlayed.color && c.value === cardPlayed.value && c.type === cardPlayed.type);
+            if (cardIdx > -1) newHand.splice(cardIdx, 1);
+        });
+        
+        const updates = {};
+        updates[`ongame_room/${currentRoomId}/hands/${botUid}`] = newHand;
+        
+        let finishedList = data.finishedPlayers || [];
+        if (newHand.length === 0 && !finishedList.includes(botUid)) {
+            finishedList = [...finishedList, botUid];
+        }
+        updates[`ongame_room/${currentRoomId}/finishedPlayers`] = finishedList;
+        let activeCount = data.playerOrder.length - finishedList.length;
+
+        let dir = data.direction, acc = data.accumulatedDraw, steps = 1, newlyAddedAcc = 0;
+        let actionMsg = "";
+
+        const finalCard = cardsPlayed[cardsPlayed.length - 1];
+
+        if (finalCard.type === 'reverse') { if (activeCount <= 2) steps += 1; else dir *= -1; actionMsg = `${botName} 進行了迴轉！`; }
+        if (finalCard.type === 'skip') { steps += 1; let ti = getUnoNextActiveIndex(data, data.turnIndex, dir, 1, finishedList); actionMsg = `${botName} 禁止了 ${data.users[data.playerOrder[ti]].name}！`; }
+        if (finalCard.type === 'draw2') { newlyAddedAcc += 2; let ti = getUnoNextActiveIndex(data, data.turnIndex, dir, 1, finishedList); actionMsg = `${botName} 讓 ${data.users[data.playerOrder[ti]].name} 多了 2 張牌`; }
+        if (finalCard.type === 'wild4') { newlyAddedAcc += 4; let ti = getUnoNextActiveIndex(data, data.turnIndex, dir, 1, finishedList); const colorMap = {red:'紅色',blue:'藍色',green:'綠色',yellow:'黃色'}; actionMsg = `${botName} 讓 ${data.users[data.playerOrder[ti]].name} 多了 4 張牌 並選取了 ${colorMap[chosenColor]}`; }
+        
+        if (!actionMsg) {
+            const cardNames = cardsPlayed.map(c => `${c.color==='black'?'黑':c.color}色 ${c.value !== undefined ? c.value : c.type}`).join('、');
+            if (cardsPlayed.length > 1) {
+                actionMsg = `${botName} 發動連出: 打出 ${cardsPlayed.length} 張牌 (${cardNames})`;
+            } else {
+                actionMsg = `${botName} 打出了 ${finalCard.value}`;
+            }
+        }
+        
+        logMsg(actionMsg, 'action');
+        updates[`ongame_room/${currentRoomId}/lastAction`] = actionMsg;
+
+        const cardsWithRotation = cardsPlayed.map(c => ({
+            ...c,
+            rotation: c.rotation || (Math.random()*20-10).toFixed(1)
+        }));
+
+        if (newlyAddedAcc > 0 && !(data.settings && data.settings.stack)) {
+            let nextIdx = getUnoNextActiveIndex(data, data.turnIndex, dir, steps, finishedList);
+            const targetUserKey = data.playerOrder[nextIdx];
+            let currentDeck = data.deck || [], currentDiscard = [...(data.discardPile || []), ...cardsWithRotation], drawn = [];
+            for (let k = 0; k < newlyAddedAcc; k++) {
+                if (currentDeck.length === 0) { 
+                    if (currentDiscard.length <= 1) break; 
+                    const top = currentDiscard.pop(); 
+                    currentDeck = currentDiscard.sort(() => Math.random() - 0.5); 
+                    currentDiscard = [top]; 
+                }
+                drawn.push(currentDeck.shift());
+            }
+            updates[`ongame_room/${currentRoomId}/hands/${targetUserKey}`] = [...(data.hands[targetUserKey]||[]), ...drawn];
+            updates[`ongame_room/${currentRoomId}/deck`] = currentDeck;
+            updates[`ongame_room/${currentRoomId}/discardPile`] = currentDiscard;
+            steps += 1;
+            updates[`ongame_room/${currentRoomId}/accumulatedDraw`] = 0;
+        } else {
+            acc += newlyAddedAcc;
+            updates[`ongame_room/${currentRoomId}/accumulatedDraw`] = acc;
+            updates[`ongame_room/${currentRoomId}/discardPile`] = [...(data.discardPile || []), ...cardsWithRotation];
+        }
+
+        let nextIdx = getUnoNextActiveIndex(data, data.turnIndex, dir, steps, finishedList);
+        let nc = chosenColor || finalCard.color;
+        if (nc === 'black') nc = 'red'; 
+        updates[`ongame_room/${currentRoomId}/turnIndex`] = nextIdx;
+        updates[`ongame_room/${currentRoomId}/direction`] = dir;
+        updates[`ongame_room/${currentRoomId}/currentColor`] = nc;
+
+        if (finishedList.length >= data.playerOrder.length - 1) {
+            updates[`ongame_room/${currentRoomId}/gameState`] = 'ended';
+            let lastPlayer = data.playerOrder.find(uid => !finishedList.includes(uid));
+            if (lastPlayer) finishedList.push(lastPlayer);
+            updates[`ongame_room/${currentRoomId}/finishedPlayers`] = finishedList;
+        }
+
+        await update(ref(db), updates);
+    }
+
+    // --- 機器人抽 1 張牌邏輯 ---
+    async function botDrawOneCard(botUid, data, isForced = false) {
+        let deck = [...(data.deck || [])];
+        let discard = [...(data.discardPile || [])];
+
+        if (deck.length === 0) {
+            if (discard.length <= 1) {
+                logMsg(`⚠️ 牌庫為空無法抽牌，${activeBots[botUid].name} 略過出牌`, 'warn');
+                let nextIdx = getUnoNextActiveIndex(data, data.turnIndex, data.direction, 1);
+                await update(ref(db, `ongame_room/${currentRoomId}`), { turnIndex: nextIdx, lastAction: `${activeBots[botUid].name} 沒牌可抽`});
+                return;
+            }
+            const top = discard.pop();
+            deck = discard.sort(() => Math.random() - 0.5);
+            discard = [top];
+            await update(ref(db, `ongame_room/${currentRoomId}`), { discardPile: discard, deck: deck });
+        }
+
+        const drawnCard = deck.shift();
+        const topCard = discard[discard.length - 1];
+
+        const playable = !isForced && (drawnCard.color === 'black' || drawnCard.color === data.currentColor || drawnCard.value === topCard.value);
+        
+        if (playable) {
+            logMsg(`✨ ${activeBots[botUid].name} 抽到了可以出的牌並立刻打出！`, 'action');
+            data.deck = deck;
+            data.discardPile = discard;
+            
+            const currentHand = [...(data.hands[botUid] || [])];
+            currentHand.push(drawnCard);
+            data.hands[botUid] = currentHand;
+            
+            let matches = [];
+            if (drawnCard.color === 'black') {
+                matches = currentHand.filter(c => c.color === 'black' && c.type === drawnCard.type && c !== drawnCard);
+            } else if (drawnCard.type === 'n') {
+                matches = currentHand.filter(c => c.type === 'n' && c.value === drawnCard.value && c !== drawnCard);
+            } else {
+                matches = currentHand.filter(c => c.type === drawnCard.type && c !== drawnCard);
+            }
+            
+            let entireGroup = [drawnCard, ...matches];
+            let remainingHand = currentHand.filter(c => !entireGroup.includes(c));
+            let remCounts = { red: 0, blue: 0, green: 0, yellow: 0 };
+            remainingHand.forEach(c => { if (remCounts[c.color] !== undefined) remCounts[c.color]++; });
+            matches.sort((a, b) => (remCounts[a.color] || 0) - (remCounts[b.color] || 0));
+            
+            let bestCombo = [drawnCard, ...matches];
+            const isComboAllowed = data.settings ? (data.settings.combo || data.settings.chain || data.settings.continuous) : true;
+            if (!isComboAllowed) {
+                bestCombo = [drawnCard];
+            }
+            
+            let chosenColor = null;
+            if (bestCombo[bestCombo.length - 1].color === 'black') {
+                chosenColor = getBestWildColor(remainingHand);
+            }
+            
+            await executeUnoPlay(botUid, data, bestCombo, chosenColor);
+        } else {
+            if (!isForced) logMsg(`😞 ${activeBots[botUid].name} 抽牌後無法出牌，收下手牌`);
+            const newHand = [...(data.hands[botUid] || []), drawnCard];
+            let nextIdx = getUnoNextActiveIndex(data, data.turnIndex, data.direction, 1);
+            
+            let actionText = isForced ? `🛑 ${activeBots[botUid].name} 觸發防護機制，強制抽牌換人` : `${activeBots[botUid].name} 抽了一張牌`;
+            await update(ref(db, `ongame_room/${currentRoomId}`), {
+                [`hands/${botUid}`]: newHand,
+                deck: deck,
+                discardPile: discard,
+                turnIndex: nextIdx,
+                lastAction: actionText
+            });
+        }
+    }
+
+    // --- 機器人罰抽邏輯 (Pass Turn) ---
+    async function botPassTurn(botUid, data, isForced = false) {
+        const acc = data.accumulatedDraw;
+        let deck = [...(data.deck||[])], discard = [...(data.discardPile||[])], drawn = [];
+        
+        for (let i = 0; i < acc; i++) {
+            if (deck.length === 0) { 
+                if (discard.length <= 1) break; 
+                const top = discard.pop(); 
+                deck = discard.sort(() => Math.random() - 0.5); 
+                discard = [top]; 
+            }
+            drawn.push(deck.shift());
+        }
+        
+        const newHand = [...(data.hands[botUid] || []), ...drawn];
+        let nextIdx = getUnoNextActiveIndex(data, data.turnIndex, data.direction, 1);
+        
+        let actionText = isForced ? `🛑 ${activeBots[botUid].name} 觸發防護機制，強制結算罰抽 ${acc} 張牌` : `${activeBots[botUid].name} 罰抽了 ${acc} 張牌`;
+
+        await update(ref(db, `ongame_room/${currentRoomId}`), {
+            [`hands/${botUid}`]: newHand, 
+            deck: deck, 
+            discardPile: discard,
+            accumulatedDraw: 0, 
+            turnIndex: nextIdx,
+            lastAction: actionText
+        });
+    }
+
+</script>
+</body>
+</html>
