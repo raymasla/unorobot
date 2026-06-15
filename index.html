@@ -164,6 +164,7 @@
             border: 1px solid rgba(255,255,255,0.1);
             text-shadow: 0 1px 1px rgba(0,0,0,0.5);
             user-select: none;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
         .uno-card-mini.red { background: var(--accent-red); }
         .uno-card-mini.blue { background: #3b82f6; }
@@ -171,7 +172,52 @@
         .uno-card-mini.yellow { background: #eab308; color: #0f172a; text-shadow: none; }
         .uno-card-mini.black { background: #334155; }
 
-        /* --- 日誌區樣式 --- */
+        /* --- 手動模式按鈕樣式 --- */
+        .manual-toggle-btn {
+            background: #334155;
+            border: 1px solid #475569;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: 0.2s;
+        }
+        .manual-toggle-btn:hover { background: #475569; }
+        
+        .manual-action-btn {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            margin-top: 5px;
+            display: inline-block;
+            transition: 0.2s;
+        }
+        .manual-action-btn:hover { background: #2563eb; }
+        
+        .uno-card-mini.clickable {
+            cursor: pointer;
+            border: 1px solid white;
+            transform: scale(1.05);
+        }
+        .uno-card-mini.clickable:hover {
+            transform: scale(1.15);
+            z-index: 10;
+            box-shadow: 0 0 8px rgba(255,255,255,0.8);
+        }
+        .uno-card-mini.clickable.manual-selected {
+            border: 2px solid #facc15;
+            transform: scale(1.15) translateY(-4px);
+            box-shadow: 0 4px 10px rgba(250, 204, 21, 0.6);
+            z-index: 15;
+        }
+
+        /* 日誌區樣式 */
         #log-area {
             margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; text-align: left;
         }
@@ -263,7 +309,6 @@
         if (roomsData) {
             Object.keys(roomsData).forEach(key => {
                 const room = roomsData[key];
-                // 僅過濾呈現類型為 uno 的房間
                 if (room && room.type === 'uno') {
                     hasUnoRoom = true;
                     const pCount = room.users ? Object.keys(room.users).length : 0;
@@ -289,7 +334,6 @@
         }
     });
 
-    // 選擇列表項目時，自動填寫同步到 roomIdInput 中
     document.getElementById("roomIdSelect").addEventListener("change", (e) => {
         document.getElementById("roomIdInput").value = e.target.value;
     });
@@ -307,7 +351,6 @@
 
         panel.style.display = "block";
         
-        // 更新當前房間狀態標籤
         const stateBadge = document.getElementById("currentRoomStateBadge");
         if (stateBadge) {
             const state = roomData.gameState || 'waiting';
@@ -340,10 +383,13 @@
             
             const isBot = user.isBot || !!activeBots[uid];
             const handCards = roomData.hands ? (roomData.hands[uid] || []) : [];
+            const isManual = activeBots[uid] && activeBots[uid].isManual;
+            const isMyTurn = (uid === currentTurnUid);
             
+            if (activeBots[uid] && !activeBots[uid].selectedCards) activeBots[uid].selectedCards = [];
+
             const row = document.createElement("div");
-            row.className = `bot-row ${uid === currentTurnUid ? 'active-turn' : ''}`;
-            // 機器人使用橘色條點綴，一般玩家使用藍色條點綴
+            row.className = `bot-row ${isMyTurn ? 'active-turn' : ''}`;
             row.style.borderLeftColor = isBot ? "var(--accent-orange)" : "#3b82f6";
 
             const meta = document.createElement("div");
@@ -351,16 +397,53 @@
             
             const nameSpan = document.createElement("span");
             nameSpan.style.fontWeight = "bold";
-            nameSpan.style.color = uid === currentTurnUid ? "#ffffff" : "var(--text-main)";
-            nameSpan.innerHTML = `${isBot ? '🤖' : '👤'} ${user.name || '未知玩家'} ${uid === currentTurnUid ? '<span style="color:var(--accent-green); font-size:11px; margin-left:6px; font-weight:bold;">[當前回合]</span>' : ''}`;
+            nameSpan.style.color = isMyTurn ? "#ffffff" : "var(--text-main)";
+            nameSpan.innerHTML = `${isBot ? '🤖' : '👤'} ${user.name || '未知玩家'} ${isMyTurn ? '<span style="color:var(--accent-green); font-size:11px; margin-left:6px; font-weight:bold;">[當前回合]</span>' : ''}`;
             
             const countSpan = document.createElement("span");
             countSpan.style.color = "var(--text-muted)";
             countSpan.style.fontSize = "12px";
             countSpan.textContent = `手牌: ${handCards.length} 張`;
 
-            meta.appendChild(nameSpan);
-            meta.appendChild(countSpan);
+            if (isBot && activeBots[uid]) {
+                const toggleBtn = document.createElement("button");
+                toggleBtn.textContent = isManual ? "自動" : "手動";
+                toggleBtn.className = "manual-toggle-btn";
+                toggleBtn.onclick = () => window.toggleBotManual(uid);
+                
+                const rightContainer = document.createElement("div");
+                rightContainer.style.display = "flex";
+                rightContainer.style.alignItems = "center";
+                rightContainer.style.gap = "8px";
+                rightContainer.appendChild(countSpan);
+                
+                if (isManual) {
+                    const hasChain = roomData.settings && (roomData.settings.chain || roomData.settings.combo || roomData.settings.continuous);
+                    if (hasChain) {
+                        const multiBtn = document.createElement("button");
+                        multiBtn.className = "manual-toggle-btn";
+                        multiBtn.textContent = "送出";
+                        multiBtn.style.background = "#2563eb";
+                        multiBtn.style.color = "white";
+                        multiBtn.style.borderColor = "#1d4ed8";
+                        if (isMyTurn) {
+                            multiBtn.onclick = () => window.sendManualCards(uid);
+                        } else {
+                            multiBtn.style.opacity = "0.5";
+                            multiBtn.style.cursor = "not-allowed";
+                        }
+                        rightContainer.appendChild(multiBtn);
+                    }
+                }
+
+                rightContainer.appendChild(toggleBtn);
+                meta.appendChild(nameSpan);
+                meta.appendChild(rightContainer);
+            } else {
+                meta.appendChild(nameSpan);
+                meta.appendChild(countSpan);
+            }
+            
             row.appendChild(meta);
 
             const cardsContainer = document.createElement("div");
@@ -372,7 +455,7 @@
                 noCards.textContent = "暫無手牌 (已出完牌或尚未開始)";
                 cardsContainer.appendChild(noCards);
             } else {
-                handCards.forEach(card => {
+                handCards.forEach((card, idx) => {
                     const cardEl = document.createElement("div");
                     cardEl.className = `uno-card-mini ${card.color || 'black'}`;
                     
@@ -386,11 +469,39 @@
                     
                     cardEl.textContent = text;
                     cardEl.title = `${card.color === 'black' ? '黑色' : card.color} · ${card.type}`;
+                    
+                    if (isManual && isMyTurn) {
+                        cardEl.classList.add("clickable");
+                        if (activeBots[uid].selectedCards && activeBots[uid].selectedCards.includes(idx)) {
+                            cardEl.classList.add("manual-selected");
+                        }
+                        cardEl.onclick = () => window.toggleManualSelection(uid, idx);
+                    }
+                    
                     cardsContainer.appendChild(cardEl);
                 });
             }
 
             row.appendChild(cardsContainer);
+            
+            if (isBot && activeBots[uid] && isManual && isMyTurn) {
+                const actionDiv = document.createElement("div");
+                actionDiv.style.marginTop = "8px";
+                
+                const drawBtn = document.createElement("button");
+                drawBtn.className = "manual-action-btn";
+                if (roomData.accumulatedDraw > 0) {
+                    drawBtn.textContent = `⚠️ 接受罰抽 ${roomData.accumulatedDraw} 張`;
+                    drawBtn.style.background = "var(--accent-red)";
+                } else {
+                    drawBtn.textContent = "🃏 手動抽一張牌";
+                }
+                drawBtn.onclick = () => window.drawCardManually(uid);
+                actionDiv.appendChild(drawBtn);
+                
+                row.appendChild(actionDiv);
+            }
+            
             listContainer.appendChild(row);
         });
     }
@@ -503,7 +614,7 @@
                 await update(userRef, { name: botName, online: true, isBot: true });
                 onDisconnect(userRef).update({ online: false });
                 
-                activeBots[userRef.key] = { uid: userRef.key, name: botName, isProcessing: false };
+                activeBots[userRef.key] = { uid: userRef.key, name: botName, isProcessing: false, selectedCards: [] };
                 logMsg(`🤖 ${botName} 已加入座位`, 'action');
             }
 
@@ -519,14 +630,12 @@
 
     // --- 🎧 監聽房間狀態與主動輪詢機制 ---
     function startRoomListener() {
-        // 被動監聽：資料庫一有更新立刻抓取最新狀態
         roomListener = onValue(ref(db, `ongame_room/${currentRoomId}`), (snapshot) => {
             currentRoomDataCache = snapshot.val();
             checkBotTurns();
-            updateMonitorUI(currentRoomDataCache); // 實時更新即時觀戰面板與手牌
+            updateMonitorUI(currentRoomDataCache);
         });
 
-        // 主動輪詢：每 800 毫秒檢查一次，防止連莊回合遺漏觸發
         setInterval(() => {
             checkBotTurns();
         }, 800);
@@ -538,9 +647,11 @@
         
         const turnUid = currentRoomDataCache.playerOrder[currentRoomDataCache.turnIndex];
         
-        // 只要是機器人的回合，且它目前沒有在執行動作，就立刻派它做事
         if (activeBots[turnUid] && !activeBots[turnUid].isProcessing) {
-            activeBots[turnUid].isProcessing = true; // 上鎖，防止重複觸發
+            if (activeBots[turnUid].isManual) {
+                return;
+            }
+            activeBots[turnUid].isProcessing = true; 
             executeBotTurn(turnUid, currentRoomDataCache);
         }
     }
@@ -574,14 +685,13 @@
         }
     }
 
-    // --- 🤖 機器人回合邏輯 (防卡死持續動作版) ---
+    // --- 🤖 機器人回合邏輯 ---
     async function executeBotTurn(botUid, roomData) {
         const botName = activeBots[botUid].name;
         let watchdogTimer = null;
         let isHandled = false;
 
         try {
-            // 🕒 看門狗防線：3 秒倒數計時
             watchdogTimer = setTimeout(async () => {
                 if (isHandled) return;
                 isHandled = true; 
@@ -590,13 +700,11 @@
                 if (activeBots[botUid]) activeBots[botUid].isProcessing = false;
             }, 3000);
 
-            // 假裝思考時間，讓節奏自然一點
             logMsg(`🤔 ${botName} 思考中...`);
             await new Promise(r => setTimeout(r, 1000));
 
             if (isHandled) return; 
 
-            // 確保操作前拿的是最新狀態
             const snap = await get(ref(db, `ongame_room/${currentRoomId}`));
             const currentData = snap.val();
             
@@ -773,6 +881,7 @@
             acc += newlyAddedAcc;
             updates[`ongame_room/${currentRoomId}/accumulatedDraw`] = acc;
             updates[`ongame_room/${currentRoomId}/discardPile`] = [...(data.discardPile || []), ...cardsWithRotation];
+            updates[`ongame_room/${currentRoomId}/deck`] = data.deck || [];
         }
 
         let nextIdx = getUnoNextActiveIndex(data, data.turnIndex, dir, steps, finishedList);
@@ -813,7 +922,8 @@
         const drawnCard = deck.shift();
         const topCard = discard[discard.length - 1];
 
-        const playable = !isForced && (drawnCard.color === 'black' || drawnCard.color === data.currentColor || drawnCard.value === topCard.value);
+        // 移除了 !isForced 的限制，讓手動抽牌也能自動判斷是否可以出牌
+        const playable = (drawnCard.color === 'black' || drawnCard.color === data.currentColor || drawnCard.value === topCard.value);
         
         if (playable) {
             logMsg(`✨ ${activeBots[botUid].name} 抽到了可以出的牌並立刻打出！`, 'action');
@@ -853,10 +963,13 @@
             await executeUnoPlay(botUid, data, bestCombo, chosenColor);
         } else {
             if (!isForced) logMsg(`😞 ${activeBots[botUid].name} 抽牌後無法出牌，收下手牌`);
+            else logMsg(`😞 ${activeBots[botUid].name} 手動抽牌後無法出牌，收下手牌`);
+            
             const newHand = [...(data.hands[botUid] || []), drawnCard];
             let nextIdx = getUnoNextActiveIndex(data, data.turnIndex, data.direction, 1);
             
-            let actionText = isForced ? `🛑 ${activeBots[botUid].name} 觸發防護機制，強制抽牌換人` : `${activeBots[botUid].name} 抽了一張牌`;
+            // 取消了 🛑，無論是手動還是自動抽牌，全域顯示的文字都與自動模式完全相同
+            let actionText = `${activeBots[botUid].name} 抽了一張牌`;
             await update(ref(db, `ongame_room/${currentRoomId}`), {
                 [`hands/${botUid}`]: newHand,
                 deck: deck,
@@ -896,6 +1009,129 @@
             lastAction: actionText
         });
     }
+
+    // --- 手動控制相關函式 ---
+    window.toggleBotManual = (uid) => {
+        if (!activeBots[uid]) return;
+        activeBots[uid].isManual = !activeBots[uid].isManual;
+        activeBots[uid].selectedCards = []; 
+        logMsg(`⚙️ 已將 ${activeBots[uid].name} 切換為 ${activeBots[uid].isManual ? '手動' : '自動'}模式`);
+        updateMonitorUI(currentRoomDataCache);
+        if (!activeBots[uid].isManual) {
+            checkBotTurns(); 
+        }
+    };
+
+    window.toggleManualSelection = (uid, idx) => {
+        if (!activeBots[uid] || !currentRoomDataCache) return;
+        const hasChain = currentRoomDataCache.settings && (currentRoomDataCache.settings.chain || currentRoomDataCache.settings.combo || currentRoomDataCache.settings.continuous);
+        
+        if (!hasChain) {
+            // 沒有開啟連出，點選後直接送出
+            activeBots[uid].selectedCards = [idx];
+            window.sendManualCards(uid);
+            return;
+        }
+
+        // 有開啟連出的多選邏輯
+        let selected = activeBots[uid].selectedCards || [];
+        if (selected.includes(idx)) {
+            selected = selected.filter(i => i !== idx);
+        } else {
+            const hand = currentRoomDataCache.hands[uid];
+            if (selected.length > 0) {
+                const firstCard = hand[selected[0]];
+                const clickedCard = hand[idx];
+                const isValidChain = (firstCard.color === 'black' || clickedCard.color === 'black') 
+                    ? firstCard.type === clickedCard.type 
+                    : (firstCard.type === 'n' && clickedCard.type === 'n' ? firstCard.value === clickedCard.value : firstCard.type === clickedCard.type);
+                    
+                if (isValidChain) {
+                    selected.push(idx);
+                } else {
+                    selected = [idx]; 
+                }
+            } else {
+                selected = [idx];
+            }
+        }
+        activeBots[uid].selectedCards = selected;
+        updateMonitorUI(currentRoomDataCache);
+    };
+
+    window.sendManualCards = async (uid) => {
+        if (!currentRoomDataCache || !activeBots[uid]) return;
+        const selected = activeBots[uid].selectedCards || [];
+        if (selected.length === 0) {
+            alert("請先選擇要出的牌！");
+            return;
+        }
+        
+        const hand = currentRoomDataCache.hands[uid];
+        const cardsPlayed = selected.map(i => hand[i]);
+        const leadCard = cardsPlayed[0];
+        const topCard = currentRoomDataCache.discardPile[currentRoomDataCache.discardPile.length - 1];
+        
+        let isPenaltyMode = (currentRoomDataCache.accumulatedDraw > 0);
+        let isValid = false;
+        
+        if (isPenaltyMode) {
+            isValid = (topCard.type === 'draw2' && leadCard.type === 'draw2') || (topCard.type === 'wild4' && leadCard.type === 'wild4');
+        } else {
+            isValid = (leadCard.color === currentRoomDataCache.currentColor || leadCard.value === topCard.value || leadCard.color === 'black');
+        }
+        
+        if (!isValid) {
+            alert("這張牌目前無法打出！(顏色或數字不符，或正在罰抽階段)");
+            activeBots[uid].selectedCards = [];
+            updateMonitorUI(currentRoomDataCache);
+            return;
+        }
+
+        let chosenColor = null;
+        const finalCard = cardsPlayed[cardsPlayed.length - 1];
+        if (finalCard.color === 'black') {
+            let remainingHand = hand.filter((_, i) => !selected.includes(i));
+            chosenColor = getBestWildColor(remainingHand);
+            if (!chosenColor) chosenColor = 'red'; 
+            const colorMap = {red:'紅色',blue:'藍色',green:'綠色',yellow:'黃色'};
+            logMsg(`💡 系統自動為 ${activeBots[uid].name} 選擇最有利的顏色: ${colorMap[chosenColor]}`);
+        }
+        
+        activeBots[uid].isProcessing = true;
+        logMsg(`👉 操作者手動替 ${activeBots[uid].name} 打出了 ${cardsPlayed.length} 張牌`);
+        try {
+            await executeUnoPlay(uid, currentRoomDataCache, cardsPlayed, chosenColor);
+        } catch (e) {
+            console.error(e);
+            alert("出牌發生錯誤");
+        } finally {
+            activeBots[uid].selectedCards = []; 
+            activeBots[uid].isProcessing = false;
+            updateMonitorUI(currentRoomDataCache); 
+        }
+    };
+
+    window.drawCardManually = async (uid) => {
+        if (!currentRoomDataCache) return;
+        if (currentRoomDataCache.playerOrder[currentRoomDataCache.turnIndex] !== uid) return;
+        
+        activeBots[uid].isProcessing = true;
+        try {
+            if (currentRoomDataCache.accumulatedDraw > 0) {
+                logMsg(`👉 操作者手動讓 ${activeBots[uid].name} 接受罰抽`, 'warn');
+                await botPassTurn(uid, currentRoomDataCache);
+            } else {
+                logMsg(`👉 操作者手動讓 ${activeBots[uid].name} 抽牌`);
+                await botDrawOneCard(uid, currentRoomDataCache, true); 
+            }
+        } catch(e) {
+            console.error(e);
+            alert("抽牌發生錯誤");
+        } finally {
+            activeBots[uid].isProcessing = false;
+        }
+    };
 
 </script>
 </body>
