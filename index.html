@@ -468,7 +468,8 @@
                     else text = card.type || '';
                     
                     cardEl.textContent = text;
-                    cardEl.title = `${card.color === 'black' ? '黑色' : card.color} · ${card.type}`;
+                    const colorTitleMap = { red: '紅色', blue: '藍色', green: '綠色', yellow: '黃色', black: '彩色' };
+                    cardEl.title = `${colorTitleMap[card.color] || card.color} · ${card.type}`;
                     
                     if (isManual && isMyTurn) {
                         cardEl.classList.add("clickable");
@@ -843,7 +844,8 @@
         if (finalCard.type === 'wild4') { newlyAddedAcc += 4; let ti = getUnoNextActiveIndex(data, data.turnIndex, dir, 1, finishedList); const colorMap = {red:'紅色',blue:'藍色',green:'綠色',yellow:'黃色'}; actionMsg = `${botName} 讓 ${data.users[data.playerOrder[ti]].name} 多了 4 張牌 並選取了 ${colorMap[chosenColor]}`; }
         
         if (!actionMsg) {
-            const cardNames = cardsPlayed.map(c => `${c.color==='black'?'黑':c.color}色 ${c.value !== undefined ? c.value : c.type}`).join('、');
+            const colorNameMap = { red: '紅', blue: '藍', green: '綠', yellow: '黃', black: '彩' };
+            const cardNames = cardsPlayed.map(c => `${colorNameMap[c.color] || c.color}色 ${c.value !== undefined ? c.value : c.type}`).join('、');
             if (cardsPlayed.length > 1) {
                 actionMsg = `${botName} 發動連出: 打出 ${cardsPlayed.length} 張牌 (${cardNames})`;
             } else {
